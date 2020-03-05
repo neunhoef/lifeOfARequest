@@ -196,4 +196,39 @@ times.
 
 Summing up, we get the above mentioned overall times.
 
+## `/_api/version` with TLS and with HTTP/1.1 over localhost
 
+```
+  CommTask::processRequest -> CommTask::prepareExecution      3 us
+  CommTask::prepareExecution -> CommTask::executeRequest      2 us
+  CommTask::executeRequest -> CommTask::handleRequestSync     2 us
+  CommTask::handleRequestSync -> RestHandler::executeEngine   9 us
+  RestHandler::executeEngine -> CommTask::sendResponse       18 us
+  CommTask::sendResponse -> CommTask::writeResponse          11 us
+  CommTask::writeResponse -> CommTask::responseWritten       32 us (was 15)
+  ----------------------------------------------------------------
+  Total time for request until response written              77 us (was 60)
+```
+
+Stats for total:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+  67770   73719   76987   79785   83610 1177540
+
+   50%    90%    99%  99.9% 99.99%
+ 76987  89319 105612 155246 179497
+```
+
+This is all the same, except for the sending of results:
+
+```
+  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  26488   29451   29991   31991   31719  124801 
+
+   50%    90%    99%  99.9% 99.99% 
+ 29991  40605  46019  57132  66142 
+```
+
+So we can see that there are some 15 to 17 us spent additionally in the
+sending part.
