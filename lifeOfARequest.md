@@ -75,7 +75,7 @@ calls `prepareExecution`:
 
 ![Initial phase](initial.png)
 
-That is not too bad with an overall result of approx. 2.5 us (microseconds).
+That is not too bad with an overall result of approx. 3 us (microseconds).
 
 Here is the time in the HttpCommTask from `prepareExecution` until
 `executeRequest`:
@@ -128,4 +128,69 @@ This is really bad in the high percentiles. Let's zoom in:
 
 ![Handover zoomed](handover_zoom.png)
 
-The next 
+Overall, we lose 9 us to the thread handover!
+
+The next is the actual execution of the RestHandler:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+  16591   17920   18226   19863   21341  224999
+
+   50%    90%    99%  99.9% 99.99%
+ 18226  23429  33000  44968  60845
+```
+
+and the plot:
+
+![RestHandler execution](execute.png)
+
+So the execution takes approximately 18 us.
+
+After the execution, we have the phase from `sendResponse` to
+`writeRespnse`, which is another thread handover back to the IO thread:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+   9074   10416   10867   11534   12370 1963696
+
+   50%    90%    99%  99.9% 99.99%
+ 10867  13734  17359  36901  69261
+```
+
+and the plot:
+
+![Handover to IO thread](sendwrite_zoom.png)
+
+Overall, we spend 11 us for this.
+
+And finally, the time for the actual sending of the data:
+
+```
+  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  11228   14003   14366   15742   16544  460988 
+
+   50%    90%    99%  99.9% 99.99% 
+ 14366  19804  25021  32916  44518 
+```
+
+and the plot:
+
+![Actual write of response](write_zoom.png)
+
+Overall, this is another 15 us or so, but with some variation to higher
+times.
+
+Summing up, we get overall:
+
+```
+  CommTask::processRequest -> CommTask::prepareExecution      3 us
+  CommTask::prepareExecution -> CommTask::executeRequest      2 us
+  CommTask::executeRequest -> CommTask::handleRequestSync     2 us
+  CommTask::handleRequestSync -> RestHandler::executeEngine   9 us
+  RestHandler::executeEngine -> CommTask::sendResponse       18 us
+  CommTask::sendResponse -> CommTask::writeResponse          11 us
+  CommTask::writeResponse -> CommTask::responseWritten       15 us
+  ----------------------------------------------------------------
+  Total time for request until response written              60 us
+```
+
