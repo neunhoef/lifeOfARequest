@@ -48,10 +48,15 @@ the whole network transfer happens in approximately 10 us, and that the
 time for the measurement is approximately 20 us, which is basically
 two `printf` statements in the `bpftrace` program.
 
+One comment about the Turbo-Mode of the CPU. When I switch the
+Turbo-Mode on again, I can easily get the 70 us client side down to
+29 us, simply because the CPU frequency goes up from 1.8 GHz to
+something between 4.4 GHz and 4.8 GHz, obviously depending on the
+load on the system and the CPU temperature.
+
 Let's look at the details within the server.
 
 The total time spent has this statistics:
-
 ```
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
   50815   56862   60017   62411   64593 2890129 
@@ -173,6 +178,10 @@ and the plot:
 ![RestHandler execution](execute.png)
 
 So the execution takes approximately 18 us.
+
+Note that I compared with `ab` (ApacheBench), which does not allow
+deflate encoding. In this way I noticed that just the deflate encoding
+costs 13 to 14 us of these 18 us!
 
 After the execution, we have the phase from `sendResponse` to
 `writeRespnse`, which is another thread handover back to the IO thread:
