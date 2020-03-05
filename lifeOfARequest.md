@@ -34,7 +34,21 @@ We measure the following times using `bpftrace`:
   Total time for request until response written              60 us
 ```
 
-Let's look at the details.
+If we compare this with the client side statistics, we see:
+
+```
+      50.00%         80.00%         85.00%         90.00%         95.00%         99.00%
+0.08980000ms   0.10480000ms   0.11230000ms   0.11980000ms   0.12730000ms   0.13480000ms
+
+```
+
+So the 60 us on the server are seen as 90 us on the client in the median.
+Without the `bpftrace` running, this goes down to 70 us. This means that
+the whole network transfer happens in approximately 10 us, and that the
+time for the measurement is approximately 20 us, which is basically
+two `printf` statements in the `bpftrace` program.
+
+Let's look at the details within the server.
 
 The total time spent has this statistics:
 
@@ -205,9 +219,9 @@ Summing up, we get the above mentioned overall times.
   CommTask::handleRequestSync -> RestHandler::executeEngine   9 us
   RestHandler::executeEngine -> CommTask::sendResponse       18 us
   CommTask::sendResponse -> CommTask::writeResponse          11 us
-  CommTask::writeResponse -> CommTask::responseWritten       32 us (was 15)
+  CommTask::writeResponse -> CommTask::responseWritten       32 us (was without TLS 15)
   ----------------------------------------------------------------
-  Total time for request until response written              77 us (was 60)
+  Total time for request until response written              77 us (was without TLS 60)
 ```
 
 Stats for total:
@@ -232,3 +246,16 @@ This is all the same, except for the sending of results:
 
 So we can see that there are some 15 to 17 us spent additionally in the
 sending part.
+
+Here are the client side statistics:
+
+```
+      50.00%         80.00%         85.00%         90.00%         95.00%         99.00%
+0.11840000ms   0.13530000ms   0.14370000ms   0.15220000ms   0.16060000ms   0.16910000ms
+```
+
+This shows that the client sees approximately 118 us, which go down to
+100 us without `bpftrace` running. So we can see that
+the client side encryption/decryption plus the decryption on the server
+side (which is so far not included in our server side measurements)
+eat another relatively small amount of time.
