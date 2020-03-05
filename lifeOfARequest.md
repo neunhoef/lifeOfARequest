@@ -22,6 +22,20 @@ We measure the following times using `bpftrace`:
 
 ## `/_api/version` without TLS and with HTTP/1.1 over localhost
 
+```
+  CommTask::processRequest -> CommTask::prepareExecution      3 us
+  CommTask::prepareExecution -> CommTask::executeRequest      2 us
+  CommTask::executeRequest -> CommTask::handleRequestSync     2 us
+  CommTask::handleRequestSync -> RestHandler::executeEngine   9 us
+  RestHandler::executeEngine -> CommTask::sendResponse       18 us
+  CommTask::sendResponse -> CommTask::writeResponse          11 us
+  CommTask::writeResponse -> CommTask::responseWritten       15 us
+  ----------------------------------------------------------------
+  Total time for request until response written              60 us
+```
+
+Let's look at the details.
+
 The total time spent has this statistics:
 
 ```
@@ -180,17 +194,6 @@ and the plot:
 Overall, this is another 15 us or so, but with some variation to higher
 times.
 
-Summing up, we get overall:
+Summing up, we get the above mentioned overall times.
 
-```
-  CommTask::processRequest -> CommTask::prepareExecution      3 us
-  CommTask::prepareExecution -> CommTask::executeRequest      2 us
-  CommTask::executeRequest -> CommTask::handleRequestSync     2 us
-  CommTask::handleRequestSync -> RestHandler::executeEngine   9 us
-  RestHandler::executeEngine -> CommTask::sendResponse       18 us
-  CommTask::sendResponse -> CommTask::writeResponse          11 us
-  CommTask::writeResponse -> CommTask::responseWritten       15 us
-  ----------------------------------------------------------------
-  Total time for request until response written              60 us
-```
 
