@@ -302,8 +302,7 @@ in each line:
 set f $argv[1]
 Rscript -e 'summary(as.numeric(readLines("stdin")))' < $f
 echo
-Rscript -e 'quantile(as.numeric(readLines("stdin")), probs=c(0.5, 0.9, 0.99, 0.9
-99, 0.9999))' < $f
+Rscript -e 'quantile(as.numeric(readLines("stdin")), probs=c(0.5, 0.9, 0.99, 0.999, 0.9999))' < $f
 ```
 
 From the original output of `scripts/exampleMeasureMethod.bt` I use an
