@@ -268,3 +268,61 @@ This shows that the client sees approximately 118 us, which go down to
 the client side encryption/decryption plus the decryption on the server
 side (which is so far not included in our server side measurements)
 eat another relatively small amount of time.
+
+## Appendix, how these measurements were achieved
+
+The code changes for these measurements are currently in this PR:
+
+https://github.com/arangodb/arangodb/pull/11245
+
+This is still work in progress and experimental. It is not completely
+clear whether we want to put the code permanently into ArangoDB.
+
+In any case, it uses a file in `lib/Basics/std.h` which contains macros
+to put in DTRACE points.
+
+Then it uses the following scripts in `scripts`:
+
+  - `scripts/measureRequestLife.bt` to do the measurements
+  - `scripts/showRequestLife.bt` to demonstrate the DTRACE points
+  - `scripts/exampleMeasureMethod.bt` to show other examples how one
+    can basically attach to any function or method without recompilation
+
+I will demonstrate all this at some stage in a presentation.
+
+The documentation for `bpftrace` is
+[here](https://github.com/iovisor/bpftrace/blob/master/docs/reference_guide.md).
+
+Once I have the raw measurements, I use the R language for statistical
+analysis, this script `stats` does all I do with a file which has one number
+in each line:
+
+```
+#!/usr/bin/fish
+set f $argv[1]
+Rscript -e 'summary(as.numeric(readLines("stdin")))' < $f
+echo
+Rscript -e 'quantile(as.numeric(readLines("stdin")), probs=c(0.5, 0.9, 0.99, 0.9
+99, 0.9999))' < $f
+```
+
+From the original output of `scripts/exampleMeasureMethod.bt` I use an
+editor to cut away the comment and summary lines to get to the raw data.
+I then use 
+
+```
+cut -f 9 -d " " < measurements.txt > onecolumn.txt
+```
+
+and then I can do
+
+```
+stats onecolumn.txt
+```
+
+The plots are done with gnuplot and commands like this:
+
+```
+plot [t=0:1.1e11] [y=0:40000] "measurements.txt" using 1:9
+```
+
