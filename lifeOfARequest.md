@@ -269,6 +269,149 @@ the client side encryption/decryption plus the decryption on the server
 side (which is so far not included in our server side measurements)
 eat another relatively small amount of time.
 
+## `/_api/version` with TLS and with HTTP/2 over localhost
+
+We use `h2load` from the `nghttp2` suite for this.
+
+Here is an initial measurement without server side measurements:
+
+```
+neunhoef@tux ~/ArangoDB> h2load -n 1000000 -H "Accept-Encoding: deflate"  https://localhost:8529/_api/version
+starting benchmark...
+spawning thread #0: 1 total client(s). 1000000 total requests
+TLS Protocol: TLSv1.3
+Cipher: TLS_AES_256_GCM_SHA384
+Server Temp Key: ECDH P-256 256 bits
+Application protocol: h2
+progress: 10% done
+progress: 20% done
+progress: 30% done
+progress: 40% done
+progress: 50% done
+progress: 60% done
+progress: 70% done
+progress: 80% done
+progress: 90% done
+progress: 100% done
+
+finished in 129.34s, 7731.42 req/s, 732.37KB/s
+requests: 1000000 total, 1000000 started, 1000000 done, 1000000 succeeded, 0 failed, 0 errored, 0 timeout
+status codes: 1000000 2xx, 0 3xx, 0 4xx, 0 5xx
+traffic: 92.51MB (97000101) total, 9.54MB (10000059) headers (space savings 92.59%), 65.80MB (69000000) data
+                     min         max         mean         sd        +/- sd
+time for request:       95us      9.33ms       123us        23us    94.96%
+time for connect:    10.87ms     10.87ms     10.87ms         0us   100.00%
+time to 1st byte:    11.56ms     11.56ms     11.56ms         0us   100.00%
+req/s           :    7731.43     7731.43     7731.43        0.00   100.00%
+```
+
+This suggests a client side measurement of approximately 123 us. This is
+slightly longer than with HTTP/1.1, but highly plausible, since we are
+using a different measurement tool (`h2load` vs. `arangobench`). We have
+used `deflate` compression as `arangobench` does.
+Note that this is single-threaded client performance which is not a
+particular strength of HTTP/2.
+
+Here is the overview over the server side measurement:
+
+```
+  CommTask::processRequest -> CommTask::prepareExecution      2 us
+  CommTask::prepareExecution -> CommTask::executeRequest      2 us
+  CommTask::executeRequest -> CommTask::handleRequestSync     2 us
+  CommTask::handleRequestSync -> RestHandler::executeEngine  10 us
+  RestHandler::executeEngine -> CommTask::sendResponse       23 us
+  CommTask::sendResponse -> CommTask::writeResponse          17 us
+  CommTask::writeResponse -> CommTask::responseWritten       23 us
+  ----------------------------------------------------------------
+  Total time for request until response written              79 us
+```
+
+The thread handover has been a bit slower here on the way out, but
+the writing was a bit faster. But all in all things are in the same
+ballpark.
+
+Statistics for the total:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+  63658   73141   79687   80217   82184 6734731
+
+     50%      90%      99%    99.9%   99.99%
+ 79687.0  92754.0 114898.0 171444.0 252343.1
+```
+
+Details for the phases:
+
+Initial phase:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   1655    1873    1915    1963    1972   63322 
+
+      50%       90%       99%     99.9%    99.99% 
+ 1915.000  2105.000  2682.000  5317.046 11466.006 
+```
+
+First phase of preparation:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   2040    2260    2297    2339    2346   33290 
+
+      50%       90%       99%     99.9%    99.99% 
+ 2297.000  2412.000  3250.000  6386.066 11972.003 
+```
+
+Second phase of preparation:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   1800    2157    2206    2289    2327   67424 
+
+      50%       90%       99%     99.9%    99.99% 
+ 2206.000  2466.000  3617.000  6932.012 12014.001 
+```
+
+Handover to Scheduler:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   2761    8279    9706    9690   10571 6496557 
+
+     50%      90%      99%    99.9%   99.99% 
+ 9706.00 10967.00 14662.02 51538.01 80372.02 
+```
+
+Actual work:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+  15407   18250   23136   21954   24235  213415
+
+     50%      90%      99%    99.9%   99.99%
+23136.00 26221.00 35038.00 46785.04 98405.01
+```
+
+Handover back to IO thread:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  12196   16593   16988   17935   17983 3740451 
+
+     50%      90%      99%    99.9%   99.99% 
+16988.00 21249.00 26670.02 80196.00 97294.01 
+```
+
+Writing of the result:
+
+```
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  19933   22633   23081   24047   24080  134907 
+
+     50%      90%      99%    99.9%   99.99% 
+23081.00 28017.00 35318.02 43698.01 58102.00 
+```
+
 ## Appendix, how these measurements were achieved
 
 The code changes for these measurements are currently in this PR:
